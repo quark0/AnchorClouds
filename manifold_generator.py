@@ -8,7 +8,7 @@ def convert_to_Y(y):
     Y[np.arange(n), y] = 1
     return Y
 
-def swiss_roll(n_samples = 250, var = 1.):
+def double_swiss_roll(n_samples = 250, var = 1.):
     '''details about the generating procedure can be found at
     http://people.cs.uchicago.edu/~dinoj/manifold/swissroll.html'''
 
@@ -26,20 +26,25 @@ def swiss_roll(n_samples = 250, var = 1.):
 
     return X, Y, y
 
-def mnist(fid = 'mnist.pkl.gz'):
+def mnist(fid = 'data/mnist.pkl.gz'):
     f = gzip.open(fid, 'rb')
     train_set, valid_set, test_set = cPickle.load(f)
     f.close()
 
     X, y = train_set
-
-    # downsampling the dataset
-    #X = X[1::4,:]
-    #y = y[1::4]
+    Y = convert_to_Y(y)
 
     #model = TSNE(n_components=2, random_state=0)
     #X = model.fit_transform(X)
 
-    Y = convert_to_Y(y)
-
     return X, Y, y
+
+def usps(fid = 'data/zip.train'):
+   Xy = np.loadtxt(fid) 
+
+   y = np.int32(Xy[:,0])
+   X = Xy[:,1:]
+   Y = convert_to_Y(y)
+   
+   return X, Y, y
+

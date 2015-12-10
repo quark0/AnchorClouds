@@ -122,7 +122,7 @@ if __name__ == '__main__':
     from anchor_clouds import anchor_clouds
 
     np.random.seed(1267)
-    dataset     = 'swiss'
+    dataset     = 'usps'
     n_trials    = 10
     visualize   = False
 
@@ -135,8 +135,16 @@ if __name__ == '__main__':
         inner_dim   = 8
         gamma       = 1e-3
         algs = ["anchor_points", "anchor_clouds"]
+    if dataset == 'usps':
+        X, Y, y = manifold_generator.usps() 
+        n_nbrs      = 3
+        n_clusters  = 64
+        n_labeled   = 100
+        inner_dim   = 8
+        gamma       = 1e-1
+        algs = ["anchor_points", "anchor_clouds"]
     elif dataset == 'swiss':
-        X, Y, y = manifold_generator.swiss_roll(n_samples=20000, var=.8)
+        X, Y, y = manifold_generator.double_swiss_roll(n_samples=20000, var=.8)
         n_nbrs      = 3
         n_clusters  = 32
         n_labeled   = 32
