@@ -98,7 +98,7 @@ def kmeans_centroids(X, n_clusters):
     t_elapsed = time.time() - t_start
     print 'kmeans: %.3f secs' % t_elapsed
 
-    return A
+    return A, km.labels_
 
 def split_by_spatial_tree(X, n_anchors):
     '''Data partitioning via spatial trees

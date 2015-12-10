@@ -34,8 +34,8 @@ def mnist(fid = 'mnist.pkl.gz'):
     X, y = train_set
 
     # downsampling the dataset
-    X = X[1::5,:]
-    y = y[1::5]
+    #X = X[1::4,:]
+    #y = y[1::4]
 
     #model = TSNE(n_components=2, random_state=0)
     #X = model.fit_transform(X)

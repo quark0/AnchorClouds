@@ -35,7 +35,12 @@ def reduced_sml(Z, l, Yl, gamma):
     Please refer to the anchor graph paper for more details.
     '''
     Lambda_inv = np.diag(1./Z.sum(axis=0))
-    ZZ = Z.T.dot(Z)
+
+    # sparse operations are crucial for large Z
+    Z_sparse = csr_matrix(Z)
+    ZZ_sparse = Z_sparse.T.dot(Z_sparse)
+    ZZ = ZZ_sparse.toarray()
+
     L_tilde = ZZ - ZZ.dot(Lambda_inv).dot(ZZ)
     Zl = Z[l,:]
     A = np.linalg.lstsq(Zl.T.dot(Zl) + gamma*L_tilde, Zl.T)[0].dot(Yl)
@@ -47,7 +52,6 @@ def reduced_sml_eigen(U, Sigma, l, Yl, gamma):
     Refs: "Semi-supervised learning in gigantic image collections." NIPS'09
     '''
     Ul = U[l,:]
-    #A = np.linalg.inv(gamma*Sigma + Ul.T.dot(Ul)).dot(Ul.T.dot(Yl))
     A = np.linalg.lstsq(gamma*Sigma + Ul.T.dot(Ul), Ul.T)[0].dot(Yl)
     return U.dot(A)
 
@@ -64,7 +68,7 @@ def anchor_points(X, n_clusters, n_nbrs):
     '''
     n = X.shape[0]
 
-    A = tools.kmeans_centroids(X, n_clusters)
+    A, _ = tools.kmeans_centroids(X, n_clusters)
 
     nbrs = NearestNeighbors(n_neighbors = n_nbrs, metric='euclidean').fit(A)
     nbrs_distances, nbrs_idx = nbrs.kneighbors(X)
@@ -86,7 +90,7 @@ def anchor_points_gmm(X, n_clusters, n_nbrs, kmeans_center=True):
         # fix the GMM means to be the kmeans centers
         gmm.params = 'wc'
         gmm.init_params = 'wc'
-        gmm.means_ = tools.kmeans_centroids(X, n_clusters)
+        gmm.means_, _ = tools.kmeans_centroids(X, n_clusters)
 
     gmm.fit(X)
 
@@ -119,25 +123,33 @@ if __name__ == '__main__':
 
     np.random.seed(1267)
     dataset     = 'mnist'
-    n_nbrs      = 3
-    n_clusters  = 100
-    n_labeled   = 100
     n_trials    = 10
-    inner_dim   = 5
-    gamma       = 1e-3
-    algs = ["anchor_points", "anchor_clouds"]
     visualize   = False
 
     # data generation
     if dataset == 'mnist':
         X, Y, y = manifold_generator.mnist()
+        n_nbrs      = 3
+        n_clusters  = 128
+        n_labeled   = 100
+        inner_dim   = 5
+        gamma       = 1e-4
+        algs = ["anchor_points", "anchor_clouds"]
     elif dataset == 'swiss':
-        X, Y, y = manifold_generator.swiss_roll(n_samples=100, var=.75)
+        X, Y, y = manifold_generator.swiss_roll(n_samples=2000, var=.75)
+        n_nbrs      = 3
+        n_clusters  = 32
+        n_labeled   = 48
+        inner_dim   = 1
+        gamma       = 1e-3
+        # heuristics: keep m = O(n/d)
+        algs = ["anchor_points", "anchor_clouds", "anchor_points_gmm"]
     else:
         sys.exit('invalid dataset')
+    n = X.shape[0]
+    n_data_per_anchor = max(n/n_clusters/inner_dim, 100)
     #tools.visualize_datapoints(X, y, "Ground Truth")
 
-    n = X.shape[0]
     ls, us = tools.random_data_split(n, n_labeled, n_trials)
 
     results = {}
@@ -151,7 +163,6 @@ if __name__ == '__main__':
         if alg == "anchor_points_gmm":
             A, Z = anchor_points_gmm(X, n_clusters, n_nbrs, False)
         if alg == "anchor_clouds":
-            n_data_per_anchor = max(n/inner_dim/n_clusters,100) # heuristics: keep m = O(n/d)
             A, Z = anchor_clouds(X, inner_dim, n_clusters, n_data_per_anchor, n_nbrs)
         if alg == "exact_eigen":
             U, Sigma = laplacian_eigen(X, n_clusters, n_nbrs)
