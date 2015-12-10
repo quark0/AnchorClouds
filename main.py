@@ -122,7 +122,7 @@ if __name__ == '__main__':
     from anchor_clouds import anchor_clouds
 
     np.random.seed(1267)
-    dataset     = 'mnist'
+    dataset     = 'swiss'
     n_trials    = 10
     visualize   = False
 
@@ -131,23 +131,23 @@ if __name__ == '__main__':
         X, Y, y = manifold_generator.mnist()
         n_nbrs      = 3
         n_clusters  = 128
-        n_labeled   = 100
-        inner_dim   = 5
-        gamma       = 1e-4
+        n_labeled   = 128
+        inner_dim   = 8
+        gamma       = 1e-3
         algs = ["anchor_points", "anchor_clouds"]
     elif dataset == 'swiss':
-        X, Y, y = manifold_generator.swiss_roll(n_samples=2000, var=.75)
+        X, Y, y = manifold_generator.swiss_roll(n_samples=20000, var=.8)
         n_nbrs      = 3
         n_clusters  = 32
-        n_labeled   = 48
+        n_labeled   = 32
         inner_dim   = 1
-        gamma       = 1e-3
+        gamma       = 1e-2
         # heuristics: keep m = O(n/d)
-        algs = ["anchor_points", "anchor_clouds", "anchor_points_gmm"]
+        algs = ["anchor_points", "anchor_clouds"]
     else:
         sys.exit('invalid dataset')
     n = X.shape[0]
-    n_data_per_anchor = max(n/n_clusters/inner_dim, 100)
+    n_data_per_anchor = max(n/n_clusters/inner_dim, 200)
     #tools.visualize_datapoints(X, y, "Ground Truth")
 
     ls, us = tools.random_data_split(n, n_labeled, n_trials)

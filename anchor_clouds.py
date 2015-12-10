@@ -21,15 +21,25 @@ class Anchor:
         # initialize ppca parameters
         self.sigma2 = ( (U*U).sum()/m - s2.sum() ) / (p - self.inner_dim)
         self.a = a
-        #self.W = Phi.dot( np.diag( np.sqrt(s2 - self.sigma2) ) )
+
+        # XXX preclude numerical issues
+        self.sigma2 = min(min(s2), max(0, self.sigma2))
+
         self.W = Phi * np.sqrt(s2 - self.sigma2) 
-        self.M = np.linalg.inv(self.W.T.dot(self.W) + self.sigma2*np.eye(self.inner_dim))
-        self.det_sqrt = np.prod( np.sqrt(s2 + self.sigma2) )
+        self.det_sqrt = np.prod(np.sqrt(s2 + self.sigma2))
+
+        try:
+            self.M = np.linalg.inv(self.W.T.dot(self.W) + self.sigma2*np.eye(self.inner_dim))
+        except np.linalg.LinAlgError:
+            print "singular anchor, setting M to zero"
+            self.M = np.zeros((self.inner_dim, self.inner_dim))
+            self.sigma2 = 1e+20
+            self.det_sqrt = 1e+20
 
     def log_ppca_density(self, x):
         u = x - self.a
         Wtu = self.W.T.dot(u)
-        return -0.5*(sum(u*u) - Wtu.T.dot(self.M).dot(Wtu))/self.sigma2 - np.log(self.det_sqrt)
+        return -0.5*(u.dot(u) - Wtu.T.dot(self.M).dot(Wtu))/self.sigma2 - np.log(self.det_sqrt)
 
 def anchor_clouds(X, inner_dim, n_anchors, n_data_per_anchor, n_anchor_per_data):
     # find anchors centroids
