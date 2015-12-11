@@ -19,11 +19,8 @@ class Anchor:
         s2 = s**2
 
         # initialize ppca parameters
-        self.sigma2 = ( (U*U).sum()/m - s2.sum() ) / (p - self.inner_dim)
+        self.sigma2 = ( np.linalg.norm(U, 'fro')**2/m - s2.sum() ) / (p - self.inner_dim)
         self.a = a
-
-        # XXX preclude numerical issues
-        self.sigma2 = min(min(s2), max(0, self.sigma2))
 
         self.W = Phi * np.sqrt(s2 - self.sigma2) 
         self.det_sqrt = np.prod(np.sqrt(s2 + self.sigma2))
@@ -31,10 +28,7 @@ class Anchor:
         try:
             self.M = np.linalg.inv(self.W.T.dot(self.W) + self.sigma2*np.eye(self.inner_dim))
         except np.linalg.LinAlgError:
-            print "singular anchor, setting M to zero"
-            self.M = np.zeros((self.inner_dim, self.inner_dim))
-            self.sigma2 = 1e+20
-            self.det_sqrt = 1e+20
+            print "singular anchor"
 
     def log_ppca_density(self, x):
         u = x - self.a
@@ -43,12 +37,12 @@ class Anchor:
 
 def anchor_clouds(X, inner_dim, n_anchors, n_data_per_anchor, n_anchor_per_data):
     # find anchors centroids
-    A, labels = tools.kmeans_centroids(X, n_anchors)
+    A = tools.kmeans_centroids(X, n_anchors)
 
     # find nearest datapoints for anchors
-    #start = time.time()
-    #_, nbrs_of_A = NearestNeighbors(n_neighbors = n_data_per_anchor).fit(X).kneighbors(A)
-    #print 'Nearest data search: %.3f secs' % (time.time() - start)
+    start = time.time()
+    _, nbrs_of_A = NearestNeighbors(n_neighbors = n_data_per_anchor).fit(X).kneighbors(A)
+    print 'Nearest data search: %.3f secs' % (time.time() - start)
 
     # initialize anchors (including estimating local ppca models)
     start = time.time()
@@ -56,9 +50,10 @@ def anchor_clouds(X, inner_dim, n_anchors, n_data_per_anchor, n_anchor_per_data)
     Anchor.inner_dim = inner_dim
     anchors = []
     for j in xrange(n_anchors):
-        #anchors.append(Anchor(A[j,:], X[nbrs_of_A[j,:],:]))
-        nbr_samples = np.random.choice(np.where(labels==j)[0], n_data_per_anchor)
-        anchors.append(Anchor(A[j,:], X[nbr_samples,:]))
+        anchors.append(Anchor(A[j,:], X[nbrs_of_A[j,:],:]))
+        # print np.where(labels==j)[0]
+        # nbr_samples = np.random.choice(np.where(labels==j)[0], n_data_per_anchor)
+        # anchors.append(Anchor(A[j,:], X[nbr_samples,:]))
 
     print 'Constructing clouds: %.3f secs' % (time.time() - start)
 
@@ -105,7 +100,7 @@ if __name__ == '__main__':
     n_data_per_anchor = 20
     n_anchor_per_data = 3
     inner_dim = 1
-    X, _, _ = manifold_generator.swiss_roll(n_samples=300, var=.75)
+    X, _, _ = manifold_generator.double_swiss_roll(n_samples=300, var=.75)
     A, Z = anchor_clouds(X, 1, n_anchors, n_data_per_anchor, n_anchor_per_data)
 
     tools.visualize_edges(X, A, Z, 1e-12)

@@ -100,15 +100,15 @@ def kmeans_centroids(X, n_clusters):
     t_start = time.time()
 
     km = MiniBatchKMeans(n_clusters=n_clusters,\
-            init='k-means++', max_iter=5, init_size=3*n_clusters).fit(X)
+            init='k-means++', max_iter=5, init_size=2*n_clusters, batch_size=500).fit(X)
     A = km.cluster_centers_
 
-    #A = split_by_spatial_tree(X, n_clusters)
+    # A = split_by_spatial_tree(X, n_clusters)
 
     t_elapsed = time.time() - t_start
     print 'kmeans: %.3f secs' % t_elapsed
 
-    return A, km.labels_
+    return A
 
 def split_by_spatial_tree(X, n_anchors):
     '''Data partitioning via spatial trees
@@ -123,11 +123,11 @@ def split_by_spatial_tree(X, n_anchors):
     from spatialtree import spatialtree
 
     height = np.log2(n_anchors)
-    height_int = int(height)
+    height_int = np.int(height)
     if height_int != height:
         print "number of anchors is not power of 2"
 
-    T = spatialtree(X, rule='rp', height=height_int, spill=0.0)
+    T = spatialtree(X, rule='rp', height=height_int, spill=0.0, min_items=1)
 
     A = np.zeros((n_anchors, X.shape[1]))
 

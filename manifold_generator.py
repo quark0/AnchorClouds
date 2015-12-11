@@ -39,12 +39,19 @@ def mnist(fid = 'data/mnist.pkl.gz'):
 
     return X, Y, y
 
-def usps(fid = 'data/zip.train'):
-   Xy = np.loadtxt(fid) 
+def load_table(filename):
+
+   Xy = np.loadtxt(filename) 
 
    y = np.int32(Xy[:,0])
+   y = y - min(y)
    X = Xy[:,1:]
    Y = convert_to_Y(y)
    
    return X, Y, y
 
+def usps(fid = 'data/zip.train'):
+    return load_table(fid)
+
+def letter(fid = 'data/letter.scale'):
+    return load_table(fid)

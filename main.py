@@ -68,7 +68,7 @@ def anchor_points(X, n_clusters, n_nbrs):
     '''
     n = X.shape[0]
 
-    A, _ = tools.kmeans_centroids(X, n_clusters)
+    A = tools.kmeans_centroids(X, n_clusters)
 
     nbrs = NearestNeighbors(n_neighbors = n_nbrs, metric='euclidean').fit(A)
     nbrs_distances, nbrs_idx = nbrs.kneighbors(X)
@@ -90,7 +90,7 @@ def anchor_points_gmm(X, n_clusters, n_nbrs, kmeans_center=True):
         # fix the GMM means to be the kmeans centers
         gmm.params = 'wc'
         gmm.init_params = 'wc'
-        gmm.means_, _ = tools.kmeans_centroids(X, n_clusters)
+        gmm.means_ = tools.kmeans_centroids(X, n_clusters)
 
     gmm.fit(X)
 
@@ -122,40 +122,59 @@ if __name__ == '__main__':
     from anchor_clouds import anchor_clouds
 
     np.random.seed(1267)
-    dataset     = 'usps'
-    n_trials    = 10
+    dataset     = 'letter'
+    n_trials    = 20
     visualize   = False
 
-    # data generation
+    #MNIST
     if dataset == 'mnist':
         X, Y, y = manifold_generator.mnist()
         n_nbrs      = 3
-        n_clusters  = 128
-        n_labeled   = 128
-        inner_dim   = 8
-        gamma       = 1e-3
-        algs = ["anchor_points", "anchor_clouds"]
-    if dataset == 'usps':
-        X, Y, y = manifold_generator.usps() 
-        n_nbrs      = 3
-        n_clusters  = 64
+        n_clusters  = 1000
         n_labeled   = 100
-        inner_dim   = 8
+        inner_dim   = 6
         gamma       = 1e-1
+        n_data_per_anchor = 50
         algs = ["anchor_points", "anchor_clouds"]
+
+    #Letter.scale
+    elif dataset == 'letter':
+        X, Y, y = manifold_generator.letter() 
+        n_nbrs      = 3
+        n_clusters  = 512
+        n_labeled   = 256
+        inner_dim   = 4
+        gamma       = 1e-2
+        n_data_per_anchor = 50
+        algs = ["anchor_points", "anchor_clouds"]
+
+    #USPS
+    elif dataset == 'usps':
+        X, Y, y = manifold_generator.usps() 
+        n_nbrs      = 2
+        n_clusters  = 200
+        n_labeled   = 100
+        inner_dim   = 5
+        gamma       = 1e-1
+        n_data_per_anchor = 30
+        algs = ["anchor_points", "anchor_clouds"]
+
+    #Double Swiss Roll
     elif dataset == 'swiss':
         X, Y, y = manifold_generator.double_swiss_roll(n_samples=20000, var=.8)
         n_nbrs      = 3
-        n_clusters  = 32
+        n_clusters  = 48
         n_labeled   = 32
         inner_dim   = 1
         gamma       = 1e-2
+        n_data_per_anchor = 200
         # heuristics: keep m = O(n/d)
         algs = ["anchor_points", "anchor_clouds"]
+
     else:
         sys.exit('invalid dataset')
+
     n = X.shape[0]
-    n_data_per_anchor = max(n/n_clusters/inner_dim, 200)
     #tools.visualize_datapoints(X, y, "Ground Truth")
 
     ls, us = tools.random_data_split(n, n_labeled, n_trials)
