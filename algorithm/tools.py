@@ -5,6 +5,11 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.cluster import MiniBatchKMeans
 import time
+from scipy.sparse import csr_matrix
+from scipy.optimize import nnls
+from sklearn.preprocessing import normalize
+import logging
+import sys
 
 def visualize_datapoints(X, y, title = ""):
     d = X.shape[1]
@@ -33,7 +38,10 @@ def visualize_anchors(X, A):
     fig.show()
 
 def visualize_edges(X, A, Z, threshold, title = ""):
-    '''Visualize the unweighted instance-anchor edges'''
+    '''Visualize the unweighted instance-anchor edges
+
+    Example: tools.visualize_edges(X, A, Z, 1e-6, alg)
+    '''
     d = X.shape[1]
     assert d == 2 or d == 3, "only 2/3-D edges can be visualized"
 
@@ -140,3 +148,47 @@ def split_by_spatial_tree(X, n_anchors):
 
     return A
 
+def locally_anchor_embedding(X, A, idx):
+    '''Locally Anchor Embedding
+
+    Args:
+        X: matrix of data points
+        A: matrix of anchors
+        idx: mapping from each element in X to anchor indices
+
+    Returns: 
+        Z: transition probability from X to A
+    '''
+    # Warning: no regularization is imposed over Z
+    # Warning: this is a simplified heuristic solution different from the original paper
+    beta = np.vstack([nnls(A[idx[i,:],:].T, X[i,:])[0] for i in xrange(X.shape[0])])
+    Z = normalize(beta, axis=1, norm='l1')
+
+    return Z
+
+def reduced_sml(Z, l, Yl, gamma):
+    '''dimension-reduced semi-supervised learning
+
+    Please refer to the anchor graph paper for more details.
+    '''
+    Lambda_inv = np.diag(1./Z.sum(axis=0))
+
+    # sparse operations are crucial for large Z
+    Z_sparse = csr_matrix(Z)
+    ZZ_sparse = Z_sparse.T.dot(Z_sparse)
+    ZZ = ZZ_sparse.toarray()
+
+    L_tilde = ZZ - ZZ.dot(Lambda_inv).dot(ZZ)
+    Zl = Z[l,:]
+    A = np.linalg.lstsq(Zl.T.dot(Zl) + gamma*L_tilde, Zl.T)[0].dot(Yl)
+    return Z.dot(A)
+
+def get_logger():
+    logger = logging.getLogger(sys.argv[0])
+    logger.setLevel(logging.INFO)
+
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    logger.addHandler(ch)
+
+    return logger
