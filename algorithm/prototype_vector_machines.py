@@ -3,6 +3,7 @@ import numpy as np
 import manifold_generator
 from sklearn.preprocessing import normalize
 from sklearn.metrics.pairwise import rbf_kernel
+import time
 
 class PVM:
     '''
@@ -23,16 +24,21 @@ class PVM:
         self.W_dagger = np.linalg.inv(self.W)
 
         d_tilde = self.H.dot(self.W_dagger.dot(self.H.T.sum(axis=1)))
-        HtH = self.H.T.dot(self.H)
-        self.HtSH = (self.H.T * d_tilde).dot(self.H) - HtH.dot(self.W_dagger).dot(HtH.T)
+        self.HtH = self.H.T.dot(self.H)
+        self.HtSH = (self.H.T * d_tilde).dot(self.H) - self.HtH.dot(self.W_dagger).dot(self.HtH.T)
         self.n = X.shape[0]
 
     def predict(self, l, Yl, C1, C2):
         u = np.setdiff1d(np.arange(self.n), l)
 
-        Hl, Hu = self.H[l,:], self.H[u,:]
-        M = self.HtSH + C1*Hl.T.dot(Hl) + C2*Hu.T.dot(Hu)
-        fv = np.linalg.lstsq(M, Hl.T)[0].dot(Yl)
+        Hl = self.H[l,:]
+
+        # NOTE A trick to avoid the expensive Hu.T.dot(Hu)
+        M = self.HtSH + (C1-C2)*Hl.T.dot(Hl) + C2*self.HtH
+
+        # M = self.HtSH + C1*Hl.T.dot(Hl) + C2*Hu.T.dot(Hu)
+
+        fv = np.linalg.pinv(M).dot(Hl.T).dot(Yl)
         scores = self.H.dot(fv)
 
         return scores
