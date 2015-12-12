@@ -79,21 +79,21 @@ def print_formated_results(r):
     if len(r) > 0:
         print "\nAccuracy:"
         for alg in r.keys():
-            print '%18s' % alg,
+            print '%10s' % alg,
         print
 
         n_trials = len(r.values()[0])
         for trial in xrange(n_trials):
             for alg in r.keys():
-                print '%18.2f' % r[alg][trial],
+                print '%10.2f' % r[alg][trial],
             print
 
         print "\nMean Accuracy:"
         for alg in r.keys():
-            print '%18s' % alg,
+            print '%10s' % alg,
         print
         for alg in r.keys():
-            print '%18.2f' % np.mean(r[alg]),
+            print '%10.2f' % np.mean(r[alg]),
         print
 
 def kmeans_centroids(X, n_clusters):

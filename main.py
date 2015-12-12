@@ -1,134 +1,13 @@
 import numpy as np
 import sys
-from sklearn.neighbors import NearestNeighbors
-from scipy.optimize import nnls
-from scipy.sparse.linalg import eigsh
-from scipy.sparse import csr_matrix
-from sklearn import mixture
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import normalize
 import time
 import manifold_generator
 import tools
-
-def locally_anchor_embedding(X, A, idx):
-    '''Locally Anchor Embedding
-
-    Args:
-        X: matrix of data points
-        A: matrix of anchors
-        idx: mapping from each element in X to anchor indices
-
-    Rreturns: 
-        Z: transition probability from X to A
-    '''
-    # Warning: no regularization is imposed over Z
-    # Warning: this is a simplified heuristic solution different from the original paper
-    n = X.shape[0]
-    beta = np.vstack([nnls(A[idx[i,:],:].T, X[i,:])[0] for i in xrange(n)])
-    Z = normalize(beta, axis=1, norm='l1')
-
-    return Z
-
-def reduced_sml(Z, l, Yl, gamma):
-    '''dimension-reduced semi-supervised learning
-
-    Please refer to the anchor graph paper for more details.
-    '''
-    Lambda_inv = np.diag(1./Z.sum(axis=0))
-
-    # sparse operations are crucial for large Z
-    Z_sparse = csr_matrix(Z)
-    ZZ_sparse = Z_sparse.T.dot(Z_sparse)
-    ZZ = ZZ_sparse.toarray()
-
-    L_tilde = ZZ - ZZ.dot(Lambda_inv).dot(ZZ)
-    Zl = Z[l,:]
-    A = np.linalg.lstsq(Zl.T.dot(Zl) + gamma*L_tilde, Zl.T)[0].dot(Yl)
-    return Z.dot(A)
-
-def reduced_sml_eigen(U, Sigma, l, Yl, gamma):
-    '''partial eigendecomposition for graph Laplacian approximation
-
-    Refs: "Semi-supervised learning in gigantic image collections." NIPS'09
-    '''
-    Ul = U[l,:]
-    A = np.linalg.lstsq(gamma*Sigma + Ul.T.dot(Ul), Ul.T)[0].dot(Yl)
-    return U.dot(A)
-
-def Nystrom():
-    '''Nystrom's method for graph Laplacian approximation'''
-    pass
-
-def anchor_points(X, n_clusters, n_nbrs):
-    '''AnchorGraph construction
-
-    Args:
-        A: anchors via clustering
-        Z: anchor embedings from X to A, where each row sums up to 1
-    '''
-    n = X.shape[0]
-
-    A = tools.kmeans_centroids(X, n_clusters)
-
-    nbrs = NearestNeighbors(n_neighbors = n_nbrs, metric='euclidean').fit(A)
-    nbrs_distances, nbrs_idx = nbrs.kneighbors(X)
-
-    nbrs_Z = locally_anchor_embedding(X, A, nbrs_idx)
-
-    Z = np.zeros((n, n_clusters))
-    Z[np.arange(n)[:,np.newaxis], nbrs_idx] = nbrs_Z
-
-    return A, Z
-
-# FIXME: for high dimesion, in gmm many diagonal components of ZZ become 0
-def anchor_points_gmm(X, n_clusters, n_nbrs, kmeans_center=True):
-    '''AnchorClound construction via Exact Gaussian Mixture'''
-
-    gmm = mixture.GMM(n_components=n_clusters, covariance_type='full', min_covar=1e-2)
-
-    if kmeans_center == True:
-        # fix the GMM means to be the kmeans centers
-        gmm.params = 'wc'
-        gmm.init_params = 'wc'
-        gmm.means_ = tools.kmeans_centroids(X, n_clusters)
-
-    gmm.fit(X)
-
-    A = gmm.means_
-    Z = gmm.predict_proba(X)
-
-    return A, Z
-
-def laplacian_eigen(X, n_clusters, n_nbrs):
-    '''Obtain the top-k eigensystem of the graph Laplacian
-
-    The eigen solver adopts shift-invert mode as described in
-    http://docs.scipy.org/doc/scipy/reference/tutorial/arpack.html
-    '''
-    from scipy.sparse import csgraph
-    nbrs = NearestNeighbors(n_neighbors=n_nbrs).fit(X)
-
-    # NOTE W is a dense graph thus may lead to memory leak
-    W = nbrs.kneighbors_graph(X).toarray()
-
-    W_sym = np.maximum(W, W.T)
-    L = csr_matrix(csgraph.laplacian(W_sym, normed=True))
-    [Sigma, U] = eigsh(L, n_clusters+1, sigma=0, which='LM')
-
-    # remove the trivial (smallest) eigenvalues & vectors
-    return U[:,1:], Sigma[1:]
-
-def knn(X, l, Yl, k):
-    '''
-    k-nearest neighbor baseline
-
-    Empirically k=1 works the best for small number of labels
-    '''
-    neigh = KNeighborsClassifier(n_neighbors=k)
-    neigh.fit(X[l,:], Yl) 
-    scores = neigh.predict(X)
-    return scores
+import prototype_vector_machines
+import laplacian_eigen
+import anchor_points
 
 if __name__ == '__main__':
     from anchor_clouds import anchor_clouds
@@ -147,7 +26,7 @@ if __name__ == '__main__':
         inner_dim   = 6
         gamma       = 1e-1
         n_data_per_anchor = 50
-        algs = ["anchor_points", "anchor_clouds"]
+        algs = ["ap", "ac"]
 
     #Letter.scale
     elif dataset == 'letter':
@@ -158,7 +37,7 @@ if __name__ == '__main__':
         inner_dim   = 4
         gamma       = 1e-2
         n_data_per_anchor = 50
-        algs = ["anchor_points", "anchor_clouds", "nearest_neighbor"]
+        algs = ["ap", "ac", "nn", "pvm"]
 
     #USPS
     elif dataset == 'usps':
@@ -169,19 +48,19 @@ if __name__ == '__main__':
         inner_dim   = 5
         gamma       = 1e-1
         n_data_per_anchor = 40
-        algs = ["anchor_points", "anchor_clouds", "nearest_neighbor"]
+        algs = ["ap", "ac", "nn"]
 
     #Double Swiss Roll
     elif dataset == 'swiss':
         X, Y, y = manifold_generator.double_swiss_roll(n_samples=10000, var=.8)
         n_nbrs      = 3
         n_clusters  = 48
-        n_labeled   = 32
+        n_labeled   = 24
         inner_dim   = 1
         gamma       = 1e-2
         n_data_per_anchor = 200
         # heuristics: keep m = O(n/d)
-        algs = ["anchor_points", "anchor_clouds", "nearest_neighbor"]
+        algs = ["ap", "ac", "nn", "pvm", "apg"]
 
     n = X.shape[0]
     #tools.visualize_datapoints(X, y, "Ground Truth")
@@ -194,15 +73,23 @@ if __name__ == '__main__':
         print alg
 
         t_start = time.time()
-        if alg == "anchor_points":
-            A, Z = anchor_points(X, n_clusters, n_nbrs)
-        if alg == "anchor_points_gmm":
-            A, Z = anchor_points_gmm(X, n_clusters, n_nbrs, False)
-        if alg == "anchor_clouds":
+        if alg == "ap":
+            ap = anchor_points.AnchorPoints(n_clusters, n_nbrs)
+            ap.fit(X)
+        if alg == "apg":
+            ap_gmm = anchor_points.AnchorPointsGMM(n_clusters, n_nbrs)
+            ap_gmm.fit(X)
+        if alg == "ac":
             A, Z = anchor_clouds(X, inner_dim, n_clusters, n_data_per_anchor, n_nbrs)
-        if alg == "exact_eigen":
-            U, Sigma = laplacian_eigen(X, n_clusters, n_nbrs)
-            #tools.visualize_eigenvectors(U, 3)
+        if alg == "le":
+            le = laplacian_eigen.LaplacianEigen(n_clusters, n_nbrs)
+            le.fit(X)
+        if alg == "nn":
+            nn = KNeighborsClassifier(n_neighbors=1)
+        if alg == "pvm":
+            sigma2, C1, C2 = 1, 1, 1
+            pvm = prototype_vector_machines.PVM(n_clusters, sigma2)
+            pvm.fit(X)
 
         if visualize == True and alg.startswith("anchor"):
             tools.visualize_edges(X, A, Z, 1e-6, alg)
@@ -216,12 +103,18 @@ if __name__ == '__main__':
             print "%d" % trial
             l, u = ls[trial], us[trial]
 
-            if alg.startswith("anchor"):
-                scores = reduced_sml(Z, l, Y[l,:], gamma)
-            elif alg == "exact_eigen":
-                scores = reduced_sml_eigen(U, Sigma, l, Y[l,:], gamma)
-            elif alg == "nearest_neighbor":
-                scores = knn(X, l, Y[l,:], 1)
+            if alg == "ap":
+                scores = ap.predict(l, Y[l,:], gamma)
+            elif alg == "apg":
+                scores = ap_gmm.predict(l, Y[l,:], gamma)
+            elif alg == "ac":
+                scores = anchor_points.reduced_sml(Z, l, Y[l,:], gamma)
+            elif alg == "le":
+                scores = le.predict(l, Y[l,:], gamma)
+            elif alg == "nn":
+                scores = nn.fit(X[l,:], Y[l,:]).predict(X)
+            elif alg == "pvm":
+                scores = pvm.predict(l, Y[l,:], C1, C2)
 
             y_hat = np.argmax(normalize(scores, axis=0, norm='l1'), axis=1)
 
