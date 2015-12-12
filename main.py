@@ -5,6 +5,7 @@ from scipy.optimize import nnls
 from scipy.sparse.linalg import eigsh
 from scipy.sparse import csr_matrix
 from sklearn import mixture
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import normalize
 import time
 import manifold_generator
@@ -118,11 +119,22 @@ def laplacian_eigen(X, n_clusters, n_nbrs):
     # remove the trivial (smallest) eigenvalues & vectors
     return U[:,1:], Sigma[1:]
 
+def knn(X, l, Yl, k):
+    '''
+    k-nearest neighbor baseline
+
+    Empirically k=1 works the best for small number of labels
+    '''
+    neigh = KNeighborsClassifier(n_neighbors=k)
+    neigh.fit(X[l,:], Yl) 
+    scores = neigh.predict(X)
+    return scores
+
 if __name__ == '__main__':
     from anchor_clouds import anchor_clouds
 
     np.random.seed(1267)
-    dataset     = 'letter'
+    dataset     = 'swiss'
     n_trials    = 20
     visualize   = False
 
@@ -146,7 +158,7 @@ if __name__ == '__main__':
         inner_dim   = 4
         gamma       = 1e-2
         n_data_per_anchor = 50
-        algs = ["anchor_points", "anchor_clouds"]
+        algs = ["anchor_points", "anchor_clouds", "nearest_neighbor"]
 
     #USPS
     elif dataset == 'usps':
@@ -156,12 +168,12 @@ if __name__ == '__main__':
         n_labeled   = 100
         inner_dim   = 5
         gamma       = 1e-1
-        n_data_per_anchor = 30
-        algs = ["anchor_points", "anchor_clouds"]
+        n_data_per_anchor = 40
+        algs = ["anchor_points", "anchor_clouds", "nearest_neighbor"]
 
     #Double Swiss Roll
     elif dataset == 'swiss':
-        X, Y, y = manifold_generator.double_swiss_roll(n_samples=20000, var=.8)
+        X, Y, y = manifold_generator.double_swiss_roll(n_samples=10000, var=.8)
         n_nbrs      = 3
         n_clusters  = 48
         n_labeled   = 32
@@ -169,10 +181,7 @@ if __name__ == '__main__':
         gamma       = 1e-2
         n_data_per_anchor = 200
         # heuristics: keep m = O(n/d)
-        algs = ["anchor_points", "anchor_clouds"]
-
-    else:
-        sys.exit('invalid dataset')
+        algs = ["anchor_points", "anchor_clouds", "nearest_neighbor"]
 
     n = X.shape[0]
     #tools.visualize_datapoints(X, y, "Ground Truth")
@@ -205,13 +214,14 @@ if __name__ == '__main__':
         for trial in xrange(n_trials):
 
             print "%d" % trial
-
             l, u = ls[trial], us[trial]
 
             if alg.startswith("anchor"):
                 scores = reduced_sml(Z, l, Y[l,:], gamma)
-            if alg == "exact_eigen":
+            elif alg == "exact_eigen":
                 scores = reduced_sml_eigen(U, Sigma, l, Y[l,:], gamma)
+            elif alg == "nearest_neighbor":
+                scores = knn(X, l, Y[l,:], 1)
 
             y_hat = np.argmax(normalize(scores, axis=0, norm='l1'), axis=1)
 
@@ -219,4 +229,3 @@ if __name__ == '__main__':
             results[alg].append(acc)
 
     tools.print_formated_results(results)
-
