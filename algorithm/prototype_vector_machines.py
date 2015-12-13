@@ -21,7 +21,7 @@ class PVM:
         self.W = rbf_kernel(A, A, gamma = 1./self.sigma2)
         self.H = rbf_kernel(X, A, gamma = 1./self.sigma2)
 
-        self.W_dagger = np.linalg.inv(self.W)
+        self.W_dagger = np.linalg.pinv(self.W)
 
         d_tilde = self.H.dot(self.W_dagger.dot(self.H.T.sum(axis=1)))
         self.HtH = self.H.T.dot(self.H)

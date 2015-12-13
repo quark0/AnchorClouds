@@ -63,3 +63,5 @@ target/
 Session.vim
 .netrwhist
 *~
+
+compare.log

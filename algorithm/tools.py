@@ -183,12 +183,19 @@ def reduced_sml(Z, l, Yl, gamma):
     A = np.linalg.lstsq(Zl.T.dot(Zl) + gamma*L_tilde, Zl.T)[0].dot(Yl)
     return Z.dot(A)
 
-def get_logger():
+def get_logger(logfile):
     logger = logging.getLogger(sys.argv[0])
     logger.setLevel(logging.INFO)
 
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
+
     ch = logging.StreamHandler(sys.stdout)
-    ch.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+    ch.setFormatter(formatter)
+
+    fh = logging.FileHandler(logfile)
+    fh.setFormatter(formatter)
+
     logger.addHandler(ch)
+    logger.addHandler(fh)
 
     return logger

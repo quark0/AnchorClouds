@@ -12,27 +12,24 @@ from algorithm import prototype_vector_machines
 from algorithm import laplacian_eigen
 from algorithm import anchor_points
 
-
 if __name__ == '__main__':
 
     np.random.seed(1267)
-    dataset     = 'swiss'
+    dataset     = 'mnist'
     n_trials    = 20
 
     #MNIST
     if dataset == 'mnist':
-        X, Y, y = manifold_generator.mnist()
         n_nbrs      = 3
         n_clusters  = 1000
         n_labeled   = 100
         inner_dim   = 6
         gamma       = 1e-1
         n_data_per_anchor = 50
-        algs = ["ap", "ac"]
+        algs = ["ap", "ac", "nn", "pvm"]
 
     #Letter.scale
     elif dataset == 'letter':
-        X, Y, y = manifold_generator.letter() 
         n_nbrs      = 3
         n_clusters  = 512
         n_labeled   = 256
@@ -43,7 +40,6 @@ if __name__ == '__main__':
 
     #USPS
     elif dataset == 'usps':
-        X, Y, y = manifold_generator.usps() 
         n_nbrs      = 2
         n_clusters  = 200
         n_labeled   = 100
@@ -54,7 +50,6 @@ if __name__ == '__main__':
 
     #Double Swiss Roll
     elif dataset == 'swiss':
-        X, Y, y = manifold_generator.double_swiss_roll(n_samples=10000, var=.8)
         n_nbrs      = 3
         n_clusters  = 48
         n_labeled   = 24
@@ -65,6 +60,13 @@ if __name__ == '__main__':
         algs = ["ap", "ac", "nn", "pvm", "apg"]
 
     sigma2, C1, C2 = 1, 1, 1
+
+    data = {
+            "swiss"  : manifold_generator.double_swiss_roll(n_samples=10000,  var=.8),
+            "usps"   : manifold_generator.usps(),
+            "letter" : manifold_generator.letter(),
+            "mnist"  : manifold_generator.mnist()
+            }
 
     model = {
             "ap" : (
@@ -86,11 +88,12 @@ if __name__ == '__main__':
                 anchor_points.AnchorPointsGMM(n_clusters, n_nbrs),
                 (gamma, ))
             }
+    
+    X, Y, y = data[dataset]
 
-    results = {}
-    n = X.shape[0]
-    ls, us = tools.random_data_split(n, n_labeled, n_trials)
-    logger = tools.get_logger()
+    results = dict()
+    ls, us = tools.random_data_split(X.shape[0], n_labeled, n_trials)
+    logger = tools.get_logger("compare.log")
 
     for alg in algs:
 
@@ -104,11 +107,13 @@ if __name__ == '__main__':
 
             l, u = ls[trial], us[trial]
 
-            logger.info("%s: sample %02d", alg, trial)
             scores = m.predict(l, Y[l,:], *model[alg][1])
             y_hat = np.argmax(normalize(scores, axis=0, norm='l1'), axis=1)
 
-            acc = 100.*np.sum(y_hat[u] == y[u])/len(u)
-            results[alg].append(acc)
+            accuracy = 100.*np.sum(y_hat[u] == y[u])/len(u)
+
+            logger.info("%s: sample %02d accuracy %.3f", alg, trial, accuracy)
+
+            results[alg].append(accuracy)
 
     tools.print_formated_results(results)
