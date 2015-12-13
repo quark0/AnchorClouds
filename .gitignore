@@ -64,4 +64,4 @@ Session.vim
 .netrwhist
 *~
 
-compare.log
+*.log

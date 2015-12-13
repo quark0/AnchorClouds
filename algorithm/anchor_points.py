@@ -18,7 +18,7 @@ class AnchorPoints:
         '''
         self.n = X.shape[0]
 
-        A = tools.kmeans_centroids(X, self.n_clusters)
+        A = tools.kmeans_centroids(X, self.n_clusters).cluster_centers_
 
         nbrs = NearestNeighbors(n_neighbors = self.n_nbrs, metric='euclidean').fit(A)
         nbrs_distances, nbrs_idx = nbrs.kneighbors(X)
@@ -43,7 +43,7 @@ class AnchorPointsGMM(AnchorPoints):
             # fix the GMM means to be the kmeans centers
             gmm.params = 'wc'
             gmm.init_params = 'wc'
-            gmm.means_ = tools.kmeans_centroids(X, self.n_clusters)
+            gmm.means_ = tools.kmeans_centroids(X, self.n_clusters).cluster_centers_
 
         gmm.fit(X)
 

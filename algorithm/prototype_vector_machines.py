@@ -17,7 +17,7 @@ class PVM:
         self.sigma2 = sigma2
 
     def fit(self, X):
-        A = tools.kmeans_centroids(X, self.n_prototypes)
+        A = tools.kmeans_centroids(X, self.n_prototypes).cluster_centers_
         self.W = rbf_kernel(A, A, gamma = 1./self.sigma2)
         self.H = rbf_kernel(X, A, gamma = 1./self.sigma2)
 

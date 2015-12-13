@@ -16,7 +16,8 @@ class AnchorClouds:
 
     def fit(self, X):
         # find anchors centroids
-        A = tools.kmeans_centroids(X, self.n_anchors)
+        km = tools.kmeans_centroids(X, self.n_anchors)
+        A = km.cluster_centers_
 
         # find nearest datapoints for anchors
         start = time.time()
@@ -29,16 +30,12 @@ class AnchorClouds:
         anchors = []
         for j in xrange(self.n_anchors):
             anchors.append(Anchor(A[j,:], X[nbrs_of_A[j,:],:], self.inner_dim))
-            # print np.where(labels==j)[0]
-            # nbr_samples = np.random.choice(np.where(labels==j)[0], self.n_data_per_anchor)
-            # anchors.append(Anchor(A[j,:], X[nbr_samples,:]))
+
+            # nbrs = np.where(km.labels_==j)[0]
+            # nbr_samples = np.random.choice(nbrs, self.n_data_per_anchor)
+            # anchors.append(Anchor(A[j,:], X[nbr_samples,:] * np.random.randint(2, size = X[nbr_samples,:].shape), self.inner_dim))
 
         print 'Constructing clouds: %.3f secs' % (time.time() - start)
-
-        #for i in xrange(n):
-            #for j in xrange(self.n_anchors):
-                #Z[i,j] = anchors[j].ppca_density(X[i,:])
-        #nbrs_of_X = Z.argsort()[:,-3:]
 
         # find nearest anchors for datapoints
         start = time.time()
@@ -47,24 +44,18 @@ class AnchorClouds:
 
         # compute probability assignment with the "exp-normalize" trick
         n = X.shape[0]
-        self.Z = np.zeros((n, self.n_anchors))
 
         start = time.time()
+
+        T = np.zeros((n, self.n_anchor_per_data))
         for i in xrange(n):
+            for j in xrange(self.n_anchor_per_data):
+                T[i,j] = anchors[nbrs_of_X[i,j]].log_ppca_density(X[i,:])
 
-            max_log_density = -1e10
-            for j in nbrs_of_X[i,:]:
-                self.Z[i,j] = anchors[j].log_ppca_density(X[i,:])
-                if self.Z[i,j] > max_log_density:
-                    max_log_density = self.Z[i,j]
+        T = normalize(np.exp(T - np.max(T, axis=1)[:,np.newaxis]), axis=1, norm='l1')
 
-            density_sum = 0
-            for j in nbrs_of_X[i,:]:
-                self.Z[i,j] = np.exp(self.Z[i,j] - max_log_density)
-                density_sum = density_sum + self.Z[i,j]
-
-            for j in nbrs_of_X[i,:]:
-                self.Z[i,j] = self.Z[i,j] / density_sum
+        self.Z = np.zeros((n, self.n_anchors))
+        self.Z[np.arange(n)[:,np.newaxis], nbrs_of_X] = T
 
         print 'Constructing Z: %.3f secs' % (time.time() - start)
 

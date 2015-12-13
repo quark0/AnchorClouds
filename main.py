@@ -15,18 +15,21 @@ from algorithm import anchor_points
 if __name__ == '__main__':
 
     np.random.seed(1267)
-    dataset     = 'mnist'
+    dataset     = 'letter'
     n_trials    = 20
+
+    C1, C2 =  1, 1
 
     #MNIST
     if dataset == 'mnist':
         n_nbrs      = 3
-        n_clusters  = 1000
+        n_clusters  = 512
         n_labeled   = 100
         inner_dim   = 6
         gamma       = 1e-1
-        n_data_per_anchor = 50
+        n_data_per_anchor = 300
         algs = ["ap", "ac", "nn", "pvm"]
+        sigma2 = 10
 
     #Letter.scale
     elif dataset == 'letter':
@@ -35,8 +38,9 @@ if __name__ == '__main__':
         n_labeled   = 256
         inner_dim   = 4
         gamma       = 1e-2
-        n_data_per_anchor = 50
-        algs = ["ap", "ac", "nn", "pvm"]
+        n_data_per_anchor = 100
+        algs = ["ac"]
+        sigma2 = 1
 
     #USPS
     elif dataset == 'usps':
@@ -47,6 +51,7 @@ if __name__ == '__main__':
         gamma       = 1e-1
         n_data_per_anchor = 40
         algs = ["ap", "ac", "nn"]
+        sigma2 = 50
 
     #Double Swiss Roll
     elif dataset == 'swiss':
@@ -58,11 +63,10 @@ if __name__ == '__main__':
         n_data_per_anchor = 200
         # heuristics: keep m = O(n/d)
         algs = ["ap", "ac", "nn", "pvm", "apg"]
-
-    sigma2, C1, C2 = 1, 1, 1
+        sigma2 = 1
 
     data = {
-            "swiss"  : manifold_generator.double_swiss_roll(n_samples=10000,  var=.8),
+            "swiss"  : manifold_generator.double_swiss_roll(n_samples=1000,  var=.8),
             "usps"   : manifold_generator.usps(),
             "letter" : manifold_generator.letter(),
             "mnist"  : manifold_generator.mnist()
@@ -93,7 +97,7 @@ if __name__ == '__main__':
 
     results = dict()
     ls, us = tools.random_data_split(X.shape[0], n_labeled, n_trials)
-    logger = tools.get_logger("compare.log")
+    logger = tools.get_logger(dataset + ".log")
 
     for alg in algs:
 

@@ -109,14 +109,14 @@ def kmeans_centroids(X, n_clusters):
 
     km = MiniBatchKMeans(n_clusters=n_clusters,\
             init='k-means++', max_iter=5, init_size=2*n_clusters, batch_size=500).fit(X)
-    A = km.cluster_centers_
+    # A = km.cluster_centers_
 
     # A = split_by_spatial_tree(X, n_clusters)
 
     t_elapsed = time.time() - t_start
     print 'kmeans: %.3f secs' % t_elapsed
 
-    return A
+    return km
 
 def split_by_spatial_tree(X, n_anchors):
     '''Data partitioning via spatial trees
